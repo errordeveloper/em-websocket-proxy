@@ -47,6 +47,10 @@ OptionParser.new do |opts|
   opts.on("-d", "--debug", "Enable em-websocket debugging output.") do
     options[:debug] = true
   end
+
+  opts.on("-b", "--binary", "Proxy binary data instead of UTF-8 text.") do
+    options[:binary] = true
+  end
   
 end.parse!
 
@@ -119,12 +123,23 @@ EventMachine.run {
       server_close = EM::Channel.new
       client_close = EM::Channel.new
 
-      output_sid = output.subscribe { |msg| ws.send msg }
+      output_sid = output.subscribe { |msg|
+        if options[:binary]
+          ws.send_binary msg
+        else
+          ws.send msg
+        end
+      }
+
       server_close_sid = server_close.subscribe { |msg| ws.close_connection }
       
       EventMachine::connect options[:remote_host], options[:remote_port], Server, input, output, server_close, client_close
 
-      ws.onmessage { |msg| input.push(msg)}
+      if options[:binary]
+        ws.onbinary { |msg| input.push(msg)}
+      else
+        ws.onmessage { |msg| input.push(msg)}
+      end
 
       ws.onclose {
         output.unsubscribe(output_sid)
