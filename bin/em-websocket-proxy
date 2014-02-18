@@ -43,6 +43,10 @@ OptionParser.new do |opts|
   opts.on("--use-tls-local", "Use TLS for the local connection. Requires crt and key.") do
     options[:use_tls_local] = true
   end
+
+  opts.on("-d", "--debug", "Enable em-websocket debugging output.") do
+    options[:debug] = true
+  end
   
 end.parse!
 
@@ -55,6 +59,8 @@ required_opts.each do |opt|
 end
 
 ws_options = {:host => "0.0.0.0", :port => options[:port]}
+ws_options[:debug] = true if (options[:debug])
+
 if (options[:use_tls_local])
   ws_options[:tls_options] = tls_options
   ws_options[:secure] = true
