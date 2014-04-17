@@ -46,12 +46,14 @@ OptionParser.new do |opts|
 
   opts.on("-d", "--debug", "Enable em-websocket debugging output.") do
     options[:debug] = true
+    require 'logger'
+    @log = Logger.new(STDOUT)
   end
 
   opts.on("-b", "--binary", "Proxy binary data instead of UTF-8 text.") do
     options[:binary] = true
   end
-  
+
 end.parse!
 
 required_opts = [:port, :remote_host, :remote_port]
@@ -117,11 +119,13 @@ Server.options = options
 EventMachine.run {
 
   EventMachine::WebSocket.start(ws_options) do |ws|
-    ws.onopen {
+    ws.onopen { |handshake|
       output = EM::Channel.new
       input = EM::Channel.new
       server_close = EM::Channel.new
       client_close = EM::Channel.new
+
+      @log.debug("New WebSocket connection: #{handshake.inspect}") if options[:debug]
 
       output_sid = output.subscribe { |msg|
         if options[:binary]
@@ -130,6 +134,8 @@ EventMachine.run {
           ws.send msg
         end
       }
+
+      @log.debug("Opening: #{input.inspect} #{output.inspect}") if options[:debug]
 
       server_close_sid = server_close.subscribe { |msg| ws.close_connection }
       
@@ -142,6 +148,7 @@ EventMachine.run {
       end
 
       ws.onclose {
+        @log.debug("Closing: #{input.inspect} #{output.inspect}") if options[:debug]
         output.unsubscribe(output_sid)
         server_close.unsubscribe(server_close_sid)
         client_close.push("exit")
